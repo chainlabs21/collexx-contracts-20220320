@@ -143,7 +143,8 @@ interface Sales_info {
 		bool _status ;
 	}
 }
-contract TangibleSpot is ERC1155MockReceiver , Sales_info {
+
+contract TangibleAuction is ERC1155MockReceiver , Sales_info {
 	address public _owner ;
 	address public _erc1155_contract_def ;
 	mapping ( bytes32 => Sales_info ) public _map_sales_info ;
@@ -168,6 +169,14 @@ contract TangibleSpot is ERC1155MockReceiver , Sales_info {
 			, _expiry ) 
 		) ;
 	}
+	event Settle (
+		address _buyer ,
+		address _seller ,
+		address _target_contract ,
+		uint256 _itemid ,
+		uint256 _tokenid ,
+		address _settler
+	);
 	function settle (
 		bytes32 _saleid
 	) public {
@@ -186,7 +195,16 @@ contract TangibleSpot is ERC1155MockReceiver , Sales_info {
 			, saleinfo._amount
 			, "0x00"
 		)
+		emit Settle ( buyer , seller , saleinfo._target_contract , saleinfo._itemid , saleinfo._tokenid , msg.sender );
 	}
+	event Bid (
+		address _bidder
+		address _seller ,
+		address _target_contract ,
+		uint256 _itemid ,
+		uint256 _tokenid ,
+		uint256 _amount
+	);
 	function pay_and_escrow (
 		bytes32 _saleid
 		, address _to
@@ -198,9 +216,27 @@ contract TangibleSpot is ERC1155MockReceiver , Sales_info {
 		else {revert ("ERR() price not met");}
 		if ( saleinfo._expiry >= block.timestamp ){ revert("ERR() sale expired"); }
 		else {}
+
+		Pay_info payinfo = _map_pay_info [ _saleid ];
+		if ( payinfo._status ){ // previous bid exists 
+			uint256 bidamount = payinfo._amount ;
+			if ( msg.value > bidamount ){}
+			else { revert("ERR() needs to outbid") ;}
+			payable ( payinfo._buyer ).call { value : bidamount } ("") ;
+		} else { // first ever bid 
+		}
 		Pay_info memory payinfo = Pay_info ( _to , saleinfo._itemid , saleinfo._tokenid , saleinfo._offerprice , true	) ;
 		_map_pay_info [ _saleid ] = payinfo ;
+		emit Bid (			msg.sender , saleinfo._seller , saleinfo._target_contract , saleinfo._itemid , saleinfo._tokenid , msg.value
+		) ;
 	}
+	event Open_sale (
+		address _seller ,
+		address _target_contract ,
+		uint256 _itemid ,
+		uint256 _tokenid ,
+		uint256 _offerprice
+	) ;
 	function begin_sales_deposit_item ( 
 		address _target_erc1155_contract
 		, address _author
@@ -251,5 +287,11 @@ contract TangibleSpot is ERC1155MockReceiver , Sales_info {
 		 _expiry ,
 		 _status );
 	}
-
+	emit Open_sale (
+		msg.sender 
+		, _target_erc1155_contract
+		, _itemid
+		, _tokenid
+		, _offerprice
+	) ;
 }
