@@ -38,9 +38,6 @@ interface IERC20 {
 	event Transfer(address indexed from, address indexed to, uint256 value);
 	event Approval(address indexed owner, address indexed spender, uint256 value);
 }
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.8.0;
 interface IERC1155 is IERC165 {
     event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value);
     event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values);
