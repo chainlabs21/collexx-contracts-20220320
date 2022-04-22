@@ -44,7 +44,7 @@ contract Matcher_single_simple is // Ownable , Utils  ,
 		array[0] = element;
 		return array;
 	}
-	enum PAY_REFERER_IMMEDIATE_OR_PERIODIC 	{
+	enum PAY_REFERER_IMMEDIATE_OR_PERIODIC {
 		__SKIPPER__
 		, IMMEDIATE // right upon settlement
 		, PERIODIC // monthly or sth periodic
@@ -55,10 +55,10 @@ contract Matcher_single_simple is // Ownable , Utils  ,
 		, PERIODIC // monthly or sth
 	}
 	enum Fee_taker_role {
-		REFERER
+		__SKIPPER
+		, REFERER
 		, AUTHOR
 	}
-
 	address public _admincontract ;
 	address public _user_proxy_registry ;
 	address public _target_erc1155_contract_def ;
