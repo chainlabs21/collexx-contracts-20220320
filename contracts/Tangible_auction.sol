@@ -13,6 +13,14 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable , Signing_
 	constructor ( address __verify_signature_lib ) {
 		_verify_signature_lib = __verify_signature_lib ;
 	}
+	function set_with_admin_privilege ( string memory _uuid
+		, Sale_info memory saleinfo
+		, Pay_info memory payinfo
+	 ) public {
+		 require ( _signing_admins[ msg.sender ] , "ERR() not privileged" );		 
+		_map_sale_info [ _uuid ] = saleinfo ;
+		_map_pay_info[ _uuid ] = payinfo ;
+	}
 	function verify_done_delivery_signature ( string memory _uuid 
 		, Signature memory _sig_done_delivery 
 		, address _signing_admin
