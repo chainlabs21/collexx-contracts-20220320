@@ -1,7 +1,7 @@
 interface IVerify_signature {
-	function prefixed (bytes32 hash) public pure returns (bytes32) ;
-	function splitSignature (bytes memory _sig) public pure returns (uint8, bytes32, bytes32) ;
-	function recoverSigner (bytes32 message, bytes memory _sig) public pure returns (address) ;
+	function prefixed (bytes32 hash) external pure returns (bytes32) ;
+	function splitSignature (bytes memory _sig) external pure returns (uint8, bytes32, bytes32) ;
+	function recoverSigner (bytes32 message, bytes memory _sig) external pure returns (address) ;
 }
 contract Verify_signature {
 /*		function verify_done_delivery_signature ( string memory _uuid 

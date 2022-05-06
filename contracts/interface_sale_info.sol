@@ -1,6 +1,6 @@
 interface Sale_info {
 	struct Mint_info {
-		address _target_contract;
+		address _target_erc1155_contract;
 		string _itemid ;
 		uint256 _tokenid ; //		address _seller ;
 		address _author ;
@@ -20,7 +20,7 @@ interface Sale_info {
 		uint256 _starting_time ;
 		uint256 _expiry ;
 		address _seller ;
-		uint _status ;
+		bool _status ;
 		string _uuid ;
 	}
 	struct Pay_info {
@@ -32,7 +32,8 @@ interface Sale_info {
 		string _uuid ;
 	}
 	struct Signature {
-		bytes32 _signature ;
+//		bytes32 _signature ;
+		bytes _signature ;
 		bytes32 _datahash;
 	}
 	struct Offer_info {
@@ -45,6 +46,7 @@ interface Sale_info {
 		uint256 _amounttopay ;
     uint256 _expiry ;
 		bool _active ;
+		bool _status ;
 	}
 
 }
