@@ -13,13 +13,24 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 	constructor ( address __verify_signature_lib ) {
 		_verify_signature_lib = __verify_signature_lib ;
 	}
+	function verify_done_delivery_signature ( string memory _uuid 
+		, Signature _sig_done_delivery 
+		, address _signing_admin
+	) public {
+		string data = encodePacked ( 'Done delivery' , _uuid );
+		string datahash = keccak256 ( data ) ;
+		address recoveredaddress = recoverSigner ( datahash , _sig_done_delivery._signature );
+		return recoveredaddress == _signing_admin ;
+	}
 	function mint_and_bid (
-		Mint_info mintinfo
+			Mint_info mintinfo
 		, Signature mintsignature
 		, Sale_info saleinfo
 		, Signature salesignature
 		, Pay_info payinfo
+		, string _uuid
 	) public payable returns ( bool ) {
+		/***** mint as usual */
 		uint256 tokenid = IERC1155 ( mintinfo._target_erc1155_contract )._itemhash_tokenid ( mintinfo._itemid ) ;
 		if ( tokenid == 0 ){
 			tokenid = IERC1155 ( mintinfo._target_erc1155_contract ).mint ( 
@@ -31,42 +42,41 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 				, "0x00"
 			)
 		} // Sales_info saleinfo = _map_sales_info [ _saleid ];
+		/******* validates */
 		if ( saleinfo._status ) {	} 
 		else {revert ("ERR() sale info not found"); }
 		if ( msg.value >= saleinfo._offerprice ){}
 		else {revert ("ERR() price not met");}
 		if ( saleinfo._expiry >= block.timestamp ){ revert("ERR() sale expired"); }
 		else {}
+		/******* pull payment and item */
 		Pay_info payinfo = _map_pay_info [ _saleid ];
+		uint256 previousbidamount ;
 		if ( payinfo._status ){ // previous bid exists 
-			uint256 bidamount = payinfo._amount ;
-			if ( msg.value > bidamount ){}
-			else { revert("ERR() needs to outbid") ;}
-			payable ( payinfo._buyer ).call { value : bidamount } ("") ;
+			previousbidamount = payinfo._amount ;
 		} else { // first ever bid 
+			previousbidamount = -1 + saleinfo._offerprice ;
 		}
-		Pay_info memory payinfo = Pay_info ( _to , saleinfo._itemid , saleinfo._tokenid , saleinfo._offerprice , true	) ;
-		_map_pay_info [ _saleid ] = payinfo ;
+		if ( saleinfo._paymeansaddress == address(0) ){ // native 
+			if ( msg.value > previousbidamount ){}
+			else {revert("ERR() value does not outbid");}
+		} else {
+			if ( payinfo._amounttopay > previousbidamount ){ // token
+				IERC20 ( saleinfo._paymeansaddress ).transferFrom ( msg.sender , address(this) , payinfo._amounttopay ) ;
+			} 
+			else {}
+		}
+		IERC1155 ( mintinfo._target_erc1155_contract).safeTransferFrom ( saleinfo._seller 
+			, address ( this )
+			, tokenid
+			, saleinfo._amounttosell
+			, "0x00"
+		) ;
+		_map_sale_info [ _uuid ] = saleinfo ;
+		_map_pay_info [ _uuid ] =  Pay_info ( _to , saleinfo._itemid , saleinfo._tokenid , saleinfo._offerprice , true	) ; 
 		emit Bid (			msg.sender , saleinfo._seller , saleinfo._target_contract , saleinfo._itemid , saleinfo._tokenid , msg.value
 		) ;
 	}
-	/** function get_Sale_info_id (
-			address _holder // 0
-		, address _target_contract  // 1
-		, string memory _itemid // 2
-		, uint256 _amount  // 3
-		, uint256 _offerprice // 4
-		, uint256 _expiry // 5
-	) public view returns ( bytes32 ){
-		uint256 tokenid = IERC1155( _target_contract)._itemhash_tokenid ( _itemhash ) ;
-		return keccak256(abi.encode ( _holder 
-			, _target_contract 
-			, _itemhash 
-			, _amount 
-			, _offerprice
-			, _expiry ) 
-		) ;
-	}*/
 	event Settle (
 		address _buyer ,
 		address _seller ,
@@ -76,26 +86,33 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 		address _settler
 	);
 	function settle ( //		bytes32 _saleid
-		Signature _sig_init_delivery
-		, Signature _sig_done_delivery
+//			Signature _sig_init_delivery		, 
+			Signature memory _sig_done_delivery // 
+		, address _signing_admin
 		, string memory _uuid
 	) public {
-		Sale_info saleinfo = _map_sale_info [ _saleid ];
-		if ( saleinfo._status > 0 ) {	} 
+		/***** verify sig */
+		if ( _signing_admins[ _signing_admin ] ){}
+		else { revert ("ERR() signer invalid") ; }
+		if ( verify_done_delivery_signature ( _uuid , _sig_done_delivery ) ){}
+		else {}
+		/****** payments */
+		Sale_info saleinfo = _map_sale_info [ _uuid ];
+		if ( saleinfo._status ) {	} 
 		else {revert ("ERR() sale info not found"); }
 		Pay_info payinfo = _map_pay_info [ _saleid ] ;
 		if ( payinfo._status  ){}
-		else { revert("ERR() pay info not found");}
-		address seller = saleinfo._seller ;
-		payable ( seller).call {value : saleinfo._offerprice } ("");
-		address buyer = payinfo._buyer ;
+		else { revert("ERR() pay info not found");} // 		address seller = saleinfo._seller ;
+		payable ( saleinfo._seller ).call {value : saleinfo._offerprice } (""); //		address buyer = payinfo._buyer ;
 		IERC1155( saleinfo._target_contract ).safeTransferFrom ( address (this)
 			, payinfo._buyer
 			, saleinfo._tokenid
 			, saleinfo._amount
 			, "0x00"
-		)
-		emit Settle ( buyer , seller , saleinfo._target_contract , saleinfo._itemid , saleinfo._tokenid , msg.sender );
+		) ;
+		_map_pay_info[ _uuid]._status = false ;
+		_map_sale_info[ _uuid]._status=false ;
+		emit Settle ( payinfo._buyer , seller , saleinfo._target_contract , saleinfo._itemid , saleinfo._tokenid , msg.sender );
 	}
 
 /** 	event Bid (
@@ -137,6 +154,7 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 		uint256 _tokenid ,
 		uint256 _offerprice
 	) ;
+}
 /**  	function begin_sales_deposit_item (
 		address _target_erc1155_contract
 		, address _author
@@ -193,4 +211,20 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 		, _offerprice
 	) ;
 	*/
-}
+	/** function get_Sale_info_id (
+			address _holder // 0
+		, address _target_contract  // 1
+		, string memory _itemid // 2
+		, uint256 _amount  // 3
+		, uint256 _offerprice // 4
+		, uint256 _expiry // 5
+	) public view returns ( bytes32 ){
+		uint256 tokenid = IERC1155( _target_contract)._itemhash_tokenid ( _itemhash ) ;
+		return keccak256(abi.encode ( _holder 
+			, _target_contract 
+			, _itemhash 
+			, _amount 
+			, _offerprice
+			, _expiry ) 
+		) ;
+	}*/

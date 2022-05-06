@@ -5,6 +5,7 @@ import "./Ownable.sol";
 import "./IVerify_signature.sol" ;
 import "./IERC1155.sol";
 import "./interface_sale_info.sol";
+
 contract TangibleSpot is ERC1155MockReceiver , Sale_info , Ownable {
 	address public _owner ; //	address public _erc1155_contract_def ;
 	mapping ( string => Sale_info ) public _map_sale_info ; // bytes32
@@ -17,7 +18,6 @@ contract TangibleSpot is ERC1155MockReceiver , Sale_info , Ownable {
 		, Signature _sig_done_delivery 
 		, address _signing_admin
 	) public {
-		Sale_info saleinfo = _map_sale_info [ _uuid ] ;
 		string data = encodePacked ( 'Done delivery' , _uuid );
 		string datahash = keccak256 ( data ) ;
 		address recoveredaddress = recoverSigner ( datahash , _sig_done_delivery._signature );
@@ -57,8 +57,9 @@ contract TangibleSpot is ERC1155MockReceiver , Sale_info , Ownable {
 			, saleinfo._amounttosell
 			, "0x00"
 		) ;		
-		if (_map_sale_info [ saleinfo._uuid ]._status ){revert("ERR() sale info already exists") ; }
+		if (_map_sale_info [ saleinfo._uuid ]._status ){revert("ERR() sale info already exists") ; } 
 		else {}
+		/****** register pay info */
 		_map_sale_info[ saleinfo._uuid ] = saleinfo ;
 		_map_pay_info [ saleinfo._uuid ] = Pay_info (
 			msg.sender , saleinfo._itemid , saleinfo._tokenid , saleinfo._amounttosell , true , saleinfo._uuid
@@ -67,15 +68,16 @@ contract TangibleSpot is ERC1155MockReceiver , Sale_info , Ownable {
 	}
 	function settle ( //	bytes32 _saleid
 //			Signature _sig_init_delivery		, // trust admin then this is not needed , because there's sig done delivery
-		Signature _sig_done_delivery
+		Signature memory _sig_done_delivery
 		, address _signing_admin
 		, string memory _uuid
 	) public {
+		/***** verify sig */
 		if ( _signing_admins[ _signing_admin ] ){}
 		else { revert ("ERR() signer invalid") ; }
 		if ( verify_done_delivery_signature ( _uuid , _sig_done_delivery ) ){}
 		else {}
-
+		/****** payments */
 		Sale_info saleinfo = _map_sale_info [ _saleid ];
 		if ( saleinfo._status  ) {}
 		else {revert ("ERR() sale info not found"); }

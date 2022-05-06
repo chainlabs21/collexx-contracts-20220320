@@ -27,7 +27,7 @@ interface Sale_info {
 		address _buyer ;
 		string _itemid ;
 		uint256 _tokenid ;
-		uint256 _amount ;
+		uint256 _amounttopay ;
 		bool _status ;
 		string _uuid ;
 	}

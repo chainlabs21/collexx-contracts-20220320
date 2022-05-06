@@ -5,7 +5,7 @@ import "./Ownable.sol";
 import "./IVerify_signature.sol" ;
 import "./IERC1155.sol";
 import "./interface_sale_info.sol";
-contract SuggestToSell is Ownable {
+contract SuggestToSell is ERC1155MockReceiver , Sale_info , Ownable {
 	mapping ( address => uint256 ) public _balances ;
 	mapping ( bytes => Offer_info ) public _map_offerid_Offer_info ;
 	mapping ( string => Offer_info ) public _map_uuid_Offer_info ;
