@@ -2,33 +2,33 @@
 pragma solidity ^0.8.0;
 import "./IERC20.sol";
 import "./Ownable.sol";
-import "./IVerify_signature.sol" ;
+import "./IVerify-signature.sol" ;
 import "./IERC1155.sol";
 import "./interface_sale_info.sol";
-
-contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
-	mapping ( bytes32 => Sale_info ) public _map_sale_info ;
-	mapping ( bytes32 => Pay_info ) public _map_pay_info ;
+import "./Signing_admins.sol";
+contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable , Signing_admins {
+	mapping ( string => Sale_info ) public _map_sale_info ;
+	mapping ( string => Pay_info ) public _map_pay_info ;
 	address public _verify_signature_lib ;
 	constructor ( address __verify_signature_lib ) {
 		_verify_signature_lib = __verify_signature_lib ;
 	}
 	function verify_done_delivery_signature ( string memory _uuid 
-		, Signature _sig_done_delivery 
+		, Signature memory _sig_done_delivery 
 		, address _signing_admin
-	) public {
-		string data = encodePacked ( 'Done delivery' , _uuid );
-		string datahash = keccak256 ( data ) ;
-		address recoveredaddress = recoverSigner ( datahash , _sig_done_delivery._signature );
+	) public returns ( bool ) {
+		bytes memory data = abi.encodePacked ( 'Done delivery' , _uuid );
+		bytes32 datahash = keccak256 ( data ) ;
+		address recoveredaddress = IVerify_signature( _verify_signature_lib ).recoverSigner ( datahash , _sig_done_delivery._signature );
 		return recoveredaddress == _signing_admin ;
 	}
 	function mint_and_bid (
-			Mint_info mintinfo
-		, Signature mintsignature
-		, Sale_info saleinfo
-		, Signature salesignature
-		, Pay_info payinfo
-		, string _uuid
+			Mint_info memory mintinfo
+		, Signature memory mintsignature
+		, Sale_info memory saleinfo
+		, Signature memory salesignature
+		, Pay_info memory payinfo
+		, string memory _uuid
 	) public payable returns ( bool ) {
 		/***** mint as usual */
 		uint256 tokenid = IERC1155 ( mintinfo._target_erc1155_contract )._itemhash_tokenid ( mintinfo._itemid ) ;
@@ -40,7 +40,7 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 				, mintinfo._author_royalty
 				, mintinfo._decimals
 				, "0x00"
-			)
+			);
 		} // Sales_info saleinfo = _map_sales_info [ _saleid ];
 		/******* validates */
 		if ( saleinfo._status ) {	} 
@@ -50,12 +50,12 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 		if ( saleinfo._expiry >= block.timestamp ){ revert("ERR() sale expired"); }
 		else {}
 		/******* pull payment and item */
-		Pay_info payinfo = _map_pay_info [ _saleid ];
+		Pay_info memory payinfo = _map_pay_info [ _uuid ];
 		uint256 previousbidamount ;
 		if ( payinfo._status ){ // previous bid exists 
-			previousbidamount = payinfo._amount ;
+			previousbidamount = payinfo._amounttopay ;
 		} else { // first ever bid 
-			previousbidamount = -1 + saleinfo._offerprice ;
+			previousbidamount =  saleinfo._offerprice -1;
 		}
 		if ( saleinfo._paymeansaddress == address(0) ){ // native 
 			if ( msg.value > previousbidamount ){}
@@ -72,10 +72,11 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 			, saleinfo._amounttosell
 			, "0x00"
 		) ;
+		/****** register *info */
 		_map_sale_info [ _uuid ] = saleinfo ;
-		_map_pay_info [ _uuid ] =  Pay_info ( _to , saleinfo._itemid , saleinfo._tokenid , saleinfo._offerprice , true	) ; 
-		emit Bid (			msg.sender , saleinfo._seller , saleinfo._target_contract , saleinfo._itemid , saleinfo._tokenid , msg.value
-		) ;
+		_map_pay_info [ _uuid ] =  payinfo ;  // Pay_info ( _to , saleinfo._itemid , saleinfo._tokenid , saleinfo._offerprice , true , _uuid	) 
+/**		emit Bid (			msg.sender , saleinfo._seller , saleinfo._target_contract , saleinfo._itemid , saleinfo._tokenid , msg.value
+		) ; */
 	}
 	event Settle (
 		address _buyer ,
@@ -94,27 +95,27 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 		/***** verify sig */
 		if ( _signing_admins[ _signing_admin ] ){}
 		else { revert ("ERR() signer invalid") ; }
-		if ( verify_done_delivery_signature ( _uuid , _sig_done_delivery ) ){}
+		if ( verify_done_delivery_signature ( _uuid , _sig_done_delivery , _signing_admin ) ){}
 		else {}
 		/****** payments */
-		Sale_info saleinfo = _map_sale_info [ _uuid ];
+		Sale_info memory saleinfo = _map_sale_info [ _uuid ];
 		if ( saleinfo._status ) {	} 
 		else {revert ("ERR() sale info not found"); }
-		Pay_info payinfo = _map_pay_info [ _saleid ] ;
+		Pay_info memory payinfo = _map_pay_info [ _uuid ] ;
 		if ( payinfo._status  ){}
 		else { revert("ERR() pay info not found");} // 		address seller = saleinfo._seller ;
 		payable ( saleinfo._seller ).call {value : saleinfo._offerprice } (""); //		address buyer = payinfo._buyer ;
-		IERC1155( saleinfo._target_contract ).safeTransferFrom ( address (this)
+		IERC1155( saleinfo._target_erc1155_contract ).safeTransferFrom ( address (this)
 			, payinfo._buyer
 			, saleinfo._tokenid
-			, saleinfo._amount
+			, saleinfo._amounttosell
 			, "0x00"
 		) ;
 		_map_pay_info[ _uuid]._status = false ;
 		_map_sale_info[ _uuid]._status=false ;
-		emit Settle ( payinfo._buyer , seller , saleinfo._target_contract , saleinfo._itemid , saleinfo._tokenid , msg.sender );
+//		emit Settle ( payinfo._buyer , seller , saleinfo._target_erc1155_contract , saleinfo._itemid , saleinfo._tokenid , msg.sender );
 	}
-
+}
 /** 	event Bid (
 		address _bidder
 		address _seller ,
@@ -147,15 +148,16 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 		emit Bid (			msg.sender , saleinfo._seller , saleinfo._target_contract , saleinfo._itemid , saleinfo._tokenid , msg.value
 		) ;
 	} */
-	event Open_sale (
+
+/**	event Open_sale (
 		address _seller ,
 		address _target_contract ,
 		uint256 _itemid ,
 		uint256 _tokenid ,
 		uint256 _offerprice
 	) ;
-}
-/**  	function begin_sales_deposit_item (
+
+  	function begin_sales_deposit_item (
 		address _target_erc1155_contract
 		, address _author
 		, string memory _itemid
