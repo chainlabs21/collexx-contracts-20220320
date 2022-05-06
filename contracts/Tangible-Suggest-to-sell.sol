@@ -1,87 +1,18 @@
 
 pragma solidity ^0.8.0;
-interface IERC165 {
-    function supportsInterface(bytes4 interfaceId) external view returns (bool);
-}
-abstract contract ERC165 is IERC165 {
-	function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-		return interfaceId == type(IERC165).interfaceId;
-	}
-}
-interface IERC1155Receiver is IERC165 {
-	function onERC1155Received(
-			address operator,
-			address from,
-			uint256 id,
-			uint256 value,
-			bytes calldata data
-	)
-		external
-		returns(bytes4);
-	function onERC1155BatchReceived(
-			address operator,
-			address from,
-			uint256[] calldata ids,
-			uint256[] calldata values,
-			bytes calldata data
-	)
-		external
-		returns(bytes4);
-}
-interface IERC20 {
-	function totalSupply() external view returns (uint256);
-	function balanceOf(address account) external view returns (uint256);
-	function transfer(address recipient, uint256 amount) external returns (bool);
-	function allowance(address owner, address spender) external view returns (uint256);
-	function approve(address spender, uint256 amount) external returns (bool);
-	function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-	event Transfer(address indexed from, address indexed to, uint256 value);
-	event Approval(address indexed owner, address indexed spender, uint256 value);
-}
-interface IERC1155 is IERC165 {
-    event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value);
-    event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values);
-    event ApprovalForAll(address indexed account, address indexed operator, bool approved);
-    event URI(string value, uint256 indexed id);
-    function balanceOf(address account, uint256 id) external view returns (uint256);
-    function balanceOfBatch(address[] calldata accounts, uint256[] calldata ids) external view returns (uint256[] memory);
-    function setApprovalForAll(address operator, bool approved) external;
-    function isApprovedForAll(address account, address operator) external view returns (bool);
-    function safeTransferFrom(address from
-			, address to
-			, uint256 id
-			, uint256 amount
-			, bytes calldata data) external;
-    function safeBatchTransferFrom(address from, address to, uint256[] calldata ids, uint256[] calldata amounts, bytes calldata data) external;
-    function _itemhash ( string memory _itemid ) external view returns ( uint256 ) ;
-    function mint (
-					uint256
-				, string memory
-				,	uint256
-				, uint256
-				, uint256
-				, bytes memory
-			) external returns ( uint256 );
-}
-
-contract SuggestToSell {
+import "./IERC20.sol";
+import "./Ownable.sol";
+import "./IVerify_signature.sol" ;
+import "./IERC1155.sol";
+import "./interface_sale_info.sol";
+contract SuggestToSell is Ownable {
 	mapping ( address => uint256 ) public _balances ;
 	mapping ( bytes => Offer_info ) public _map_offerid_Offer_info ;
 	mapping ( string => Offer_info ) public _map_uuid_Offer_info ;
 	address public _owner ;
-	constructor () {
-		_owner = msg.sender ;
-	}
-	struct Offer_info {
-		address _seller ;
-		address _buyer ;
-		address _target_erc1155_contract ;
-		string _itemid ;
-    address _paymeansaddress ;
-		uint256 _amounttobuy ;
-		uint256 _amounttopay ;
-    uint256 _expiry ;
-		bool _active ;
+	address public _verify_signature_lib ;
+	constructor ( address __verify_signature_lib ) {
+		_verify_signature_lib = __verify_signature_lib ; //		_owner = msg.sender ;
 	}
 	function makepayment (
 			address _paymeansaddress
@@ -96,11 +27,13 @@ contract SuggestToSell {
 		}
 	}
 	function mint_and_offer (
-			address _target_erc1155_contract // 0
- 		, string memory _itemid // 1
-		, uint256 _amounttomint // 2
-		, uint256 _author_royalty // 3
-		, address _author // 4
+		Mint_info mintinfo
+		, Offer_info offerinfo
+		// 	address _target_erc1155_contract // 0
+ 		// , string memory _itemid // 1
+		// , uint256 _amounttomint // 2
+		// , uint256 _author_royalty // 3
+		// , address _author // 4
 		, address _seller // 5
 		, address _buyer // 6
 		, uint256 _amounttobuy // 7
@@ -110,8 +43,7 @@ contract SuggestToSell {
 		, string memory _uuid // 11
 //		, string memory _uuid
 	) public payable {
-		uint256 tokenid ; // 9
-		require ( _amounttomint >= _amounttobuy , "ERR() amount invalid") ;
+		uint256 tokenid ; // 9 //		require ( _amounttomint >= _amounttobuy , "ERR() amount invalid") ;
 		if ( (tokenid = IERC1155( _target_erc1155_contract )._itemhash (_itemid) )== 0 ){
 			tokenid = IERC1155 ( _target_erc1155_contract ).mint (
 					_author_royalty
@@ -123,34 +55,13 @@ contract SuggestToSell {
 			);
 		} else {
 		}
-		if ( _paymeansaddress==address( 0 ) ){
-			require( msg.value >= _amounttopay , "ERR() amount not met");
+		if ( _paymeansaddress == address( 0 ) ) {
+			require( msg.value >= offerinfo._amounttopay , "ERR() amount not met");
 		} else {
 			if ( IERC20( _paymeansaddress ).transferFrom( msg.sender, address(this) , _amounttopay )  ){}
-            else {revert( "ERR() amount not met") ; }
+			else {revert( "ERR() amount not met") ; }
 		}
 		_balances [ msg.sender ] += _amounttopay ;
-		bytes memory offerinstanceid = bytes( abi.encodePacked ( 
-				_target_erc1155_contract 		
-			, _itemid
-			, _seller
-			, _buyer
-			, _amounttobuy
-			, _amounttopay
-			, _paymeansaddress
-			, _expiry
-		) ) ;
-		_map_offerid_Offer_info [ offerinstanceid ] = Offer_info (
-      _seller ,
-			_buyer ,
-			_target_erc1155_contract ,
-			_itemid ,
-      _paymeansaddress ,
-			_amounttobuy ,
-			_amounttopay ,
-      _expiry ,
-			true
-		) ;
 		_map_uuid_Offer_info [ _uuid ] = Offer_info (
       _seller ,
 			_buyer ,
@@ -163,12 +74,12 @@ contract SuggestToSell {
 			true
 		) ;
 	}
-	function get_offer_info ( bytes memory _offerid ) public returns ( Offer_info memory ){
+/** 	function get_offer_info ( bytes memory _offerid ) public returns ( Offer_info memory ){
 		return _map_offerid_Offer_info [ _offerid ] ;
 	}
 	function get_offer_info ( string memory _uuid ) public returns ( Offer_info memory ) {
 		return _map_uuid_Offer_info [ _uuid ] ;
-	}
+	} */
 	function initoffermap ( string memory _uuid ) internal {
 		_map_uuid_Offer_info [ _uuid ] = Offer_info (address(0) , address(0) , address(0) , "",address(0) , 0,0,0 ,false );
 	}

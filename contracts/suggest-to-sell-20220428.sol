@@ -100,7 +100,6 @@ contract SuggestToSell {
  		, string memory _itemid // 1
 		, uint256 _amounttomint // 2
 		, uint256 _author_royalty // 3
-		, address _author // 4
 		, address _seller // 5
 		, address _buyer // 6
 		, uint256 _amounttobuy // 7
@@ -194,7 +193,7 @@ contract SuggestToSell {
 		if ( Offer_info._active ){}
 		else {revert("ERR() invalid offer"); }
 		if ( Offer_info._expiry > block.timestamp ){}
-		else {			initoffermap( _uuid ); // this func has side effect of deleting offers that are supposed to have expired
+		else {			initoffermap( _uuid ); // this func has side effect of deleting offers that are expired
 		}
 		uint256 tokenid = IERC1155( Offer_info._target_erc1155_contract )._itemhash ( Offer_info._itemid );
 		IERC1155( Offer_info._target_erc1155_contract ).safeTransferFrom ( Offer_info._seller , Offer_info._buyer , tokenid , Offer_info._amounttobuy , "0x00" );

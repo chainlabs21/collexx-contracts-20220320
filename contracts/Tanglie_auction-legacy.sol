@@ -143,7 +143,6 @@ interface Sales_info {
 		bool _status ;
 	}
 }
-
 contract TangibleAuction is ERC1155MockReceiver , Sales_info {
 	address public _owner ;
 	address public _erc1155_contract_def ;

@@ -4,6 +4,11 @@ contract CommonConstants {
     bytes4 constant internal ERC1155_ACCEPTED = 0xf23a6e61; // bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))
     bytes4 constant internal ERC1155_BATCH_ACCEPTED = 0xbc197c81; // bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))
 } // Contract to test safe transfer behavior.
+interface IVerify_signature {
+	function prefixed (bytes32 hash) public pure returns (bytes32) ;
+	function splitSignature (bytes memory _sig) public pure returns (uint8, bytes32, bytes32) ;
+	function recoverSigner (bytes32 message, bytes memory _sig) public pure returns (address) ;
+}
 interface IERC1155  { // is IERC165
 	function _acting_contracts ( address _address ) external view returns ( bool _status) ;
 	function set_acting_contracts( address _address , bool _status ) external ;
@@ -83,7 +88,7 @@ contract ERC1155MockReceiver is // ERC1155TokenReceiver,
 	function setShouldReject(bool _value) public {
 			shouldReject = _value;
 	}
-	function onERC1155Received(address _operator
+	function onERC1155Received ( address _operator
 		, address _from
 		, uint256 _id
 		, uint256 _value
@@ -104,8 +109,8 @@ contract ERC1155MockReceiver is // ERC1155TokenReceiver,
 		, address _from
 		, uint256[] calldata _ids
 		, uint256[] calldata _values
-		, bytes calldata _data) 
-	external returns(bytes4) {
+		, bytes calldata _data )
+	external returns( bytes4 ) {
 		lastOperator = _operator;
 		lastFrom = _from;
 		lastId = _ids[0];

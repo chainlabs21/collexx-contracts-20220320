@@ -18,7 +18,7 @@ interface IERC1155Receiver is IERC165 {
 	)
 		external
 		returns(bytes4);
-	function onERC1155BatchReceived(
+	function onERC1155BatchReceived (
 			address operator,
 			address from,
 			uint256[] calldata ids,
@@ -65,7 +65,7 @@ interface IERC1155 is IERC165 {
 }
 contract Auction {
 	mapping ( address => uint256 ) public _balances ;
-//	mapping ( bytes => Auction_info ) public _map_offerid_offerinfo ;
+//	mapping ( bytes => Auction_info ) public _map_offerid_Offer_info ;
 	mapping ( string => Auction_info ) public _map_uuid_auctioninfo ;
 	mapping ( string => Bid_info ) public _map_uuid_bidinfo ;
 	mapping ( bytes => string ) public _map_auction_instance_hash_uuid ;
@@ -121,6 +121,7 @@ contract Auction {
 		, uint256 _author_royalty // 3
 		, address _author  // 4*/
 		Mint_info memory mintinfo
+		
 /******* */
 		, address _seller // 5
 		, uint256 _amounttobuy // 6
