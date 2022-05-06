@@ -5,15 +5,23 @@ import "./Ownable.sol";
 import "./IVerify_signature.sol" ;
 import "./IERC1155.sol";
 import "./interface_sale_info.sol";
-
 contract TangibleSpot is ERC1155MockReceiver , Sale_info , Ownable {
-	address public _owner ;
-//	address public _erc1155_contract_def ;
+	address public _owner ; //	address public _erc1155_contract_def ;
 	mapping ( string => Sale_info ) public _map_sale_info ; // bytes32
 	mapping ( string => Pay_info ) public _map_pay_info ; // bytes32
 	address public _verify_signature_lib ;
 	constructor ( address __verify_signature_lib ) { //		_owner = msg.sender ;
 		_verify_signature_lib = __verify_signature_lib ;
+	}
+	function verify_done_delivery_signature ( string memory _uuid 
+		, Signature _sig_done_delivery 
+		, address _signing_admin
+	) public {
+		Sale_info saleinfo = _map_sale_info [ _uuid ] ;
+		string data = encodePacked ( 'Done delivery' , _uuid );
+		string datahash = keccak256 ( data ) ;
+		address recoveredaddress = recoverSigner ( datahash , _sig_done_delivery._signature );
+		return recoveredaddress == _signing_admin ;
 	}
 	function mint_and_escrow_to_buy (
 			Mint_info mintinfo
@@ -22,8 +30,9 @@ contract TangibleSpot is ERC1155MockReceiver , Sale_info , Ownable {
 		, Signature salesignature
 		, Pay_info payinfo
 	) public payable returns ( bool ) {
+		/****** mint  as usual */
 		uint256 tokenid = IERC1155 ( mintinfo._target_erc1155_contract)._itemhash_tokenid ( mintinfo._itemhash) ;
-		if ( tokenid == 0 ){
+		if ( tokenid == 0 ) {
 			tokenid = IERC1155 ( mintinfo._target_erc1155_contract ).mint (
 				mintinfo._author
 				, mintinfo._itemid
@@ -33,12 +42,13 @@ contract TangibleSpot is ERC1155MockReceiver , Sale_info , Ownable {
 				, "0x00"
 			) ;
 		}
+		/******* pull payment and item */
 		if ( saleinfo._paymeansaddress == address(0) ) { 
-				if (  msg.value >= saleinfo._offerprice){}
-				else {revert("ERR() value does not meet price");}
+			if (  msg.value >= saleinfo._offerprice){}
+			else {revert("ERR() value does not meet price");}
 		} else {
-				if ( IERC20( saleinfo._paymeansaddress).transferFrom( msg.sender , address(this) , saleinfo._offerprice) ){}
-				else {revert("ERR() value does not meet price"); }				
+			if ( IERC20( saleinfo._paymeansaddress).transferFrom( msg.sender , address(this) , saleinfo._offerprice) ){}
+			else {revert("ERR() value does not meet price"); }
 		}
 		IERC1155 ( _target_erc1155_contract ).safeTransferFrom (
 			saleinfo._seller
@@ -46,7 +56,7 @@ contract TangibleSpot is ERC1155MockReceiver , Sale_info , Ownable {
 			, tokenid
 			, saleinfo._amounttosell
 			, "0x00"
-		) ;
+		) ;		
 		if (_map_sale_info [ saleinfo._uuid ]._status ){revert("ERR() sale info already exists") ; }
 		else {}
 		_map_sale_info[ saleinfo._uuid ] = saleinfo ;
@@ -55,13 +65,17 @@ contract TangibleSpot is ERC1155MockReceiver , Sale_info , Ownable {
 		); //		address _buyer ;		string _itemid ;		uint256 _tokenid ;		uint256 _amount ;		bool _status ;		string _uuid ;
 		return true ;
 	}
-	function settle (
-//	bytes32 _saleid
-		Signature _sig_init_delivery
-		, Signature _sig_done_delivery
-		string memory _uuid
+	function settle ( //	bytes32 _saleid
+//			Signature _sig_init_delivery		, // trust admin then this is not needed , because there's sig done delivery
+		Signature _sig_done_delivery
+		, address _signing_admin
+		, string memory _uuid
 	) public {
-		if ( ecrecover ( _sig_init_delivery , ) ) ;
+		if ( _signing_admins[ _signing_admin ] ){}
+		else { revert ("ERR() signer invalid") ; }
+		if ( verify_done_delivery_signature ( _uuid , _sig_done_delivery ) ){}
+		else {}
+
 		Sale_info saleinfo = _map_sale_info [ _saleid ];
 		if ( saleinfo._status  ) {}
 		else {revert ("ERR() sale info not found"); }
@@ -80,83 +94,4 @@ contract TangibleSpot is ERC1155MockReceiver , Sale_info , Ownable {
 		_map_pay_info[ _uuid]._status = false ;
 		_map_sale_info[ _uuid]._status=false ;
 	}
-	/* function pay_and_escrow (
-		bytes32 _saleid
-		, address _to
-	) public payable returns ( bool ) {
-		Sale_info saleinfo = _map_sale_info [ _saleid ];
-		if ( saleinfo._status > 0 ) {	} 
-		else {revert ("ERR() sale info not found"); }
-		if ( msg.value >= saleinfo._offerprice ){}
-		else {revert ("ERR() price not met");}
-		if ( saleinfo._expiry >= block.timestamp ){ revert("ERR() sale expired"); }
-		else {}
-		Pay_info memory payinfo = Pay_info ( _to , saleinfo._itemid , saleinfo._tokenid , saleinfo._offerprice , true	) ;
-		_map_pay_info [ _saleid ] = payinfo ;
-	}
-	function begin_sales_deposit_item ( 
-		address _target_erc1155_contract
-		, address _author
-		, string memory _itemid
-		, uint256 _amounttomint
-		, uint256 _author_royalty
-		, address _seller //		, uint256 _tokenid  // address
-		, uint256 _amounttosell
-		, uint256 _offerprice
-		, uint _starting_time
-		, uint _expiry
-	) public {
-		uint256 tokenid ;
-		if ( (tokenid = IERC1155( _target_erc1155_contract)._itemhash_tokenid( _itemid)) ==0 ){
-			tokenid = IERC1155 ( _target_erc1155_contract).mint ( 
-			_author // _sell er
-			, _itemid
-			, _amounttomint // _am ount
-			, _author_royalty
-			, 0 // _decimals
-			, "0x00"
-			) ;
-		} else {}
-		IERC1155 ( _target_erc1155_contract ).safeTransferFrom (
-			msg.sender
-			, address ( this )
-			, tokenid
-			, _amounttosell
-			, "0x00"
-		) ;
-		bytes32 saleid= get_Sale_info_id ( _holder // 0
-			,  _target_contract  // 1
-			,  _itemid // 2
-			,  _amount  // 3
-			,  _offerprice // 4
-			,  _expiry // 5
-		) ;
-		_map_sale_info [ saleid ] = Sale_info (
-			_target_erc1155_contract ,
-			_author ,
-			_itemid ,
-			_tokenid ,
-			_seller ,
-		 _amounttosell ,
-		 _starting_time ,
-		 _expiry ,
-		 _status );
-	} */
 }
-/** 	function get_Sale_info_id (
-			address _holder // 0
-		, address _target_contract  // 1
-		, string memory _itemid // 2
-		, uint256 _amount  // 3
-		, uint256 _offerprice // 4
-		, uint256 _expiry // 5
-	) public view returns ( bytes32 ){
-		uint256 tokenid = IERC1155( _target_contract)._itemhash_tokenid ( _itemhash ) ;
-		return keccak256(abi.encode ( _holder 
-			, _target_contract 
-			, _itemhash 
-			, _amount 
-			, _offerprice
-			, _expiry ) 
-		) ;
-	}*/

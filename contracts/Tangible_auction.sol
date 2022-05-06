@@ -1,11 +1,13 @@
 
 pragma solidity ^0.8.0;
-import "./interface_sale_info.sol";
+import "./IERC20.sol";
+import "./Ownable.sol";
+import "./IVerify_signature.sol" ;
 import "./IERC1155.sol";
+import "./interface_sale_info.sol";
+
 contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
-	address public _owner ;
-	address public _erc1155_contract_def ;
-	mapping ( bytes32 => Sale_info ) public _map_Sale_info ;
+	mapping ( bytes32 => Sale_info ) public _map_sale_info ;
 	mapping ( bytes32 => Pay_info ) public _map_pay_info ;
 	address public _verify_signature_lib ;
 	constructor ( address __verify_signature_lib ) {
@@ -78,7 +80,7 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 		, Signature _sig_done_delivery
 		, string memory _uuid
 	) public {
-		Sale_info saleinfo = _map_Sale_info [ _saleid ];
+		Sale_info saleinfo = _map_sale_info [ _saleid ];
 		if ( saleinfo._status > 0 ) {	} 
 		else {revert ("ERR() sale info not found"); }
 		Pay_info payinfo = _map_pay_info [ _saleid ] ;
@@ -107,7 +109,7 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 		bytes32 _saleid
 		, address _to
 	) public payable returns ( bool ) {
-		Sale_info saleinfo = _map_Sale_info [ _saleid ];
+		Sale_info saleinfo = _map_sale_info [ _saleid ];
 		if ( saleinfo._status > 0 ) {	} 
 		else {revert ("ERR() sale info not found"); }
 		if ( msg.value >= saleinfo._offerprice ){}
@@ -172,7 +174,7 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable {
 			,  _offerprice // 4
 			,  _expiry // 5
 		) ;
-		_map_Sale_info [ saleid ] = Sale_info (
+		_map_sale_info [ saleid ] = Sale_info (
 			_target_erc1155_contract ,
 			_author ,
 			_itemid ,

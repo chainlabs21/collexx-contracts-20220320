@@ -4,6 +4,17 @@ interface IVerify_signature {
 	function recoverSigner (bytes32 message, bytes memory _sig) public pure returns (address) ;
 }
 contract Verify_signature {
+/*		function verify_done_delivery_signature ( string memory _uuid 
+		, Signature _sig_done_delivery 
+		, address _signing_admin
+	) public {
+		Sale_info saleinfo = _map_sale_info [ _uuid ] ;
+		string data = encodePacked ( 'Done delivery' , _uuid );
+		string datahash = keccak256 ( data ) ;
+		address recoveredaddress = recoverSigner ( datahash , _sig_done_delivery._signature );
+		return recoveredaddress == _signing_admin ;
+	}
+*/
 	function prefixed (bytes32 hash) public pure returns (bytes32) {
 		return keccak256(abi.encodePacked("\x19Klaytn Signed Message:\n32", hash));
 	}
