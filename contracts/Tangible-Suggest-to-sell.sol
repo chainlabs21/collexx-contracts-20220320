@@ -2,25 +2,27 @@
 pragma solidity ^0.8.0;
 import "./IERC20.sol";
 import "./Ownable.sol";
-import "./IVerify_signature.sol" ;
+import "./IVerify-signature.sol" ;
 import "./IERC1155.sol";
 import "./interface_sale_info.sol";
-contract SuggestToSell is ERC1155MockReceiver , Sale_info , Ownable {
+import "./Signing_admins.sol";
+
+contract SuggestToSell is ERC1155MockReceiver , Sale_info , Ownable , Signing_admins {
 	mapping ( address => uint256 ) public _balances ;
 //	mapping ( string => Offer_info ) public _map_offerid_Offer_info ;
 	mapping ( string => Offer_info ) public _map_offer_info ;
-	address public _owner ;
+//	address public _owner ;
 	address public _verify_signature_lib ;
 	constructor ( address __verify_signature_lib ) {
 		_verify_signature_lib = __verify_signature_lib ; //		_owner = msg.sender ;
 	}
 	function set_with_admin_privilege ( string memory _uuid
 		, Sale_info memory saleinfo
-		, Pay_info memory payinfo
+		, Offer_info memory offerinfo // payinfo
 	 ) public {
 		 require ( _signing_admins[ msg.sender ] , "ERR() not privileged" );		 
-		_map_sale_info [ _uuid ] = saleinfo ;
-		_map_pay_info[ _uuid ] = payinfo ;
+//		_map_sale_info [ _uuid ] = saleinfo ;
+		_map_offer_info[ _uuid ] = offerinfo ;
 	}
 	function verify_done_delivery_signature ( string memory _uuid 
 		, Signature memory _sig_done_delivery 
@@ -86,7 +88,8 @@ contract SuggestToSell is ERC1155MockReceiver , Sale_info , Ownable {
 /** 	function get_offer_info ( bytes memory _offerid ) public returns ( Offer_info memory ){		return _map_offerid_Offer_info [ _offerid ] ;	}
 	function get_offer_info ( string memory _uuid ) public returns ( Offer_info memory ) {		return _map_offer_info [ _uuid ] ;	} */
 	function initoffermap ( string memory _uuid ) internal {
-		_map_offer_info [ _uuid ] = Offer_info (address(0) , address(0) , address(0) , "",address(0) , 0,0,0 ,false );
+//		_map_offer_info [ _uuid ] = Offer_info (address(0) , address(0) , address(0) , "",address(0) , 0,0,0 ,false );
+		_map_offer_info [ _uuid ]._status = false ;
 	}
 	function cancel_offer ( string memory _uuid ) public {
 		Offer_info memory offerinfo = _map_offer_info [ _uuid ] ;
@@ -110,7 +113,7 @@ contract SuggestToSell is ERC1155MockReceiver , Sale_info , Ownable {
 		if ( Offer_info._expiry > block.timestamp ){}
 		else {			initoffermap( _uuid ); // this func has side effect of deleting offers that are supposed to have expired
 		}
-		uint256 tokenid = IERC1155( Offer_info._target_erc1155_contract )._itemhash ( Offer_info._itemid );
+		uint256 tokenid = IERC1155( Offer_info._target_erc1155_contract )._itemhash_tokenid ( Offer_info._itemid );
 		IERC1155( Offer_info._target_erc1155_contract ).safeTransferFrom ( Offer_info._seller , Offer_info._buyer , tokenid , Offer_info._amounttobuy , "0x00" );
 		makepayment ( Offer_info._paymeansaddress
 			, Offer_info._amounttopay
@@ -123,7 +126,7 @@ contract SuggestToSell is ERC1155MockReceiver , Sale_info , Ownable {
     _;
   }
 	function accept_offer ( string memory _uuid ) public {
-		Offer_info offerinfo = _map_offer_info [ _uuid ] ;
+		Offer_info memory offerinfo = _map_offer_info [ _uuid ] ;
 		uint256 tokenid = IERC1155 ( offerinfo._target_erc1155_contract )._itemhash_tokenid ( offerinfo._itemid ) ;
 		IERC1155 ( offerinfo._target_erc1155_contract ).safeTransferFrom ( 
 				offerinfo._seller
