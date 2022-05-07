@@ -41,6 +41,7 @@ interface Sale_info {
 		address _buyer ;
 		address _target_erc1155_contract ;
 		string _itemid ;
+		uint256 _tokenid ;
     address _paymeansaddress ;
 		uint256 _amounttobuy ;
 		uint256 _amounttopay ;

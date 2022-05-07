@@ -48,7 +48,7 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable , Signing_
 				, mintinfo._author_royalty
 				, mintinfo._decimals
 				, "0x00"
-			);
+			) ;
 		} // Sales_info saleinfo = _map_sales_info [ _saleid ];
 		/******* validates */
 		if ( saleinfo._status ) {	} 
@@ -65,9 +65,9 @@ contract TangibleAuction is ERC1155MockReceiver , Sale_info , Ownable , Signing_
 		} else { // first ever bid 
 			previousbidamount =  saleinfo._offerprice -1;
 		}
-		if ( saleinfo._paymeansaddress == address(0) ){ // native 
+		if ( saleinfo._paymeansaddress == address(0) ) { // native
 			if ( msg.value > previousbidamount ){}
-			else {revert("ERR() value does not outbid");}
+			else {revert("ERR() value does not outbid"); }
 		} else {
 			if ( payinfo._amounttopay > previousbidamount ){ // token
 				IERC20 ( saleinfo._paymeansaddress ).transferFrom ( msg.sender , address(this) , payinfo._amounttopay ) ;
