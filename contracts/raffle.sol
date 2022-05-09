@@ -69,19 +69,19 @@ contract Raffle is Sale_info , IRaffle_info , Ownable {
 			receivedamount_ = _amounttopay ;
 		}
 	}
-	function bid ( string memory _uuid ) public {
+	function bid ( string memory _uuid ) public payable{
 		if ( _map_user_raffle_status[ msg.sender ] [_uuid ] ){revert("ERR() you're already in the raffle");}
 		else {}
 		Raffle_info memory raffleinfo = _map_raffle_info [ _uuid ] ;
 		uint256 receivedamount = receivepayment ( raffleinfo._paymeansaddress 
-			, raffleinfo._amounttopay
+			, raffleinfo._offerprice
 			, msg.value
 			, msg.sender
 		) ;
 		_map_user_raffle_status[ msg.sender ] [ _uuid ] = true ;
 		_map_uuid_players [ _uuid ].push (msg.sender );
 		_map_uuid_salesamount [ _uuid ] += receivedamount ;
-		++ _map_uuid_countplayers ;
+		++ _map_uuid_countplayers [ _uuid ];
 	}
 	function makepayment (
 			address _paymeansaddress
@@ -123,10 +123,10 @@ contract Raffle is Sale_info , IRaffle_info , Ownable {
 				, raffleinfo._offerprice
 				, refundreceiver
 			);
-			_map_user_raffle_status[ refundreceiver ][ _uuid]  = ; // mapping ( address => mapping ( string => bool )) public 
+			_map_user_raffle_status[ refundreceiver ][ _uuid]  =false ; // mapping ( address => mapping ( string => bool )) public 
 		}
 		_map_raffle_info [_uuid]._status = false  ; // mapping ( string => Raffle_info ) public
-		_map_uuid_players [ _uuid] = [] ; // mapping ( string => address [] ) public  
+//		_map_uuid_players [ _uuid] = address [] ; // mapping ( string => address [] ) public  
 	  _map_uuid_salesamount [ _uuid ] = 0 ; // mapping ( string => uint256 ) public
 	  _map_uuid_countplayers [ _uuid ] = 0 ;
 	}
