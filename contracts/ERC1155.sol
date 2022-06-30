@@ -12,6 +12,7 @@ pragma solidity ^0.8.0;
 // XXX import "./Interfaces/IAdmin_nft.sol"; 
 // XXX import "./openzeppelin/access/Ownable.sol" ;
 // XXX import "./Interfaces/IUserBlackWhiteList";
+import "hardhat/console.sol";
 interface IUserBlackWhiteList {
 	function set_blacklist ( address _address , bool _status ) external ;
 	function set_whitelist ( address _address , bool _status ) external ;
@@ -40,6 +41,7 @@ interface IERC1155 is IERC165 {
 	function mint (
 		address to, //		uint256 id,
 		string memory _itemhash ,
+		string memory _revealedhash,
 		uint256 amount,
 		uint256 __author_royalty ,
 		uint256 __decimals ,
@@ -48,6 +50,7 @@ interface IERC1155 is IERC165 {
 	function mintBatch (
 		address to, //			uint256[] memory ids,
 		string [] memory _itemhashes ,
+		string [] memory _revealedhashes,
 		uint256[] memory amounts,
 		uint256 [] memory __author_royalty ,
 		uint256 [] memory __decimals ,
@@ -277,13 +280,12 @@ interface IERC1155Receiver is IERC165 {
 	address public _user_proxy_registry ;
 	address public _user_black_white_list_registry ;
   mapping ( uint256 => mapping( address => uint256 ) ) public _balances ; // priv ate
-	mapping ( string => mapping (address => uint256 ) ) public _balances_by_itemid ;
 	mapping ( uint256 => uint ) public _decimals ; // token id => decimals
 	mapping ( uint256 => uint256 ) public _amounts ; // token id =>total supply
   // Mapping from account to operator approvals
   mapping(address => mapping(address => bool)) public _operatorApprovals; // priv ate
   // Used as the URI for all token types by relying on ID substitution, e.g. https://token-cdn-domain/{id}.json
-	string public _uri; // priv ate 	
+	string public _uri; // priv ate
 	mapping ( string => uint256 ) public _itemhash_tokenid ; // content id
 	mapping (uint256 => string ) public _tokenid_itemhash ;
 	mapping (address => bool ) public _acting_contracts ;
@@ -295,6 +297,9 @@ interface IERC1155Receiver is IERC165 {
 	uint256 public override _token_id_global ;
 	mapping ( uint256 => string ) _tokenid_metadataurl ; // ipfs | http
 	mapping ( uint256 => string ) _tokenid_rawfileurl ;  // ipfs
+	mapping ( uint256 => bool ) public _tokenid_isfrozen ;
+	mapping ( uint256 => string ) public _tokenid_revealed_itemhash;
+	mapping ( uint256 => bool ) public _tokenid_isclaimed;
 	string public _version ;
   /**     * @dev See {_setURI}.
   */
@@ -308,14 +313,14 @@ interface IERC1155Receiver is IERC165 {
 //    _beforeTokenTransfer(operator, address(0), to, ids, amounts, data);
   constructor ( string memory uri_ 
 		, address __admincontract 
-		, address __user_proxy_registry
+		//, address __user_proxy_registry
 		, address __user_black_white_list_registry
 		, string memory __version
 	) {
     _setURI( uri_ );
 		_contractowner = msg.sender ;
 		_admincontract = __admincontract;
-		_user_proxy_registry = __user_proxy_registry;
+		//_user_proxy_registry = __user_proxy_registry;
 		_owner = msg.sender ;
 		_token_id_global = 1; // so as to avoid evm null resolution
 		_user_black_white_list_registry = __user_black_white_list_registry ;
@@ -334,9 +339,9 @@ interface IERC1155Receiver is IERC165 {
 	function _owners( uint256 _tokenid ) public view returns (address ) {
 		
 	}
-	function balanceOf ( address _address , string  memory _itemid ) public view returns ( uint256 ){
-		return _balances_by_itemid [ _itemid][ _address] ;
-	}
+	// function balanceOf ( address _address , string  memory _itemid ) public view returns ( uint256 ){
+	// 	return _balances_by_itemid [ _itemid][ _address] ;
+	// }
 	function balanceOf(address account, uint256 id) public view virtual override returns (uint256) {
 		require(account != address(0), "ERC1155: balance query for the zero address");
 		return _balances[id][account];
@@ -371,6 +376,8 @@ interface IERC1155Receiver is IERC165 {
 			uint256 amount,
 			bytes memory data
     ) public virtual override {
+		console.log("from: %s",from);
+		console.log("sender : %s",_msgSender());
 			require(
 					from == _msgSender() || isApprovedForAll(from, _msgSender()) || _acting_contracts[ msg.sender ] ,
 					"ERC1155: caller is not owner nor approved"
@@ -407,15 +414,19 @@ interface IERC1155Receiver is IERC165 {
 			uint256 amount,
 			bytes memory data
     ) internal virtual {
+		if(_tokenid_isfrozen[id]){revert("Item is frozen");}
       require(to != address(0), "ERC1155: transfer to the zero address");
       address operator = _msgSender();
 //        _beforeTokenTransfer ( operator, from, to, _asSingletonArray(id), _asSingletonArray(amount), data);
         uint256 fromBalance = _balances[id][from];
+		uint256 toBalance = _balances[id][to];
+		console.log("from balance: %s amount %s toBalance: %s", fromBalance, amount, toBalance);
         require(fromBalance >= amount, "ERC1155: insufficient balance for transfer");
         unchecked {
 					_balances[id][from] = fromBalance - amount;
         }
         _balances[id][to] += amount;
+
         emit TransferSingle(operator, from, to, id, amount);
         if ( false ) {_doSafeTransferAcceptanceCheck(operator, from, to, id, amount, data);
 				}
@@ -432,8 +443,10 @@ interface IERC1155Receiver is IERC165 {
         address operator = _msgSender();
 //        _beforeTokenTransfer(operator, from, to, ids, amounts, data);
         for (uint256 i = 0; i < ids.length; ++i) {
+			
             uint256 id = ids[i];
             uint256 amount = amounts[i];
+			if(_tokenid_isfrozen[id]){revert("Item is frozen");}
 
             uint256 fromBalance = _balances[id][from];
             require(fromBalance >= amount, "ERC1155: insufficient balance for transfer");
@@ -458,6 +471,7 @@ interface IERC1155Receiver is IERC165 {
 		function mint (
 			address _to, //	beneficiary //		uint256 id,
 			string memory _itemhash ,
+			string memory _revealedhash,
 			uint256 amount,
 			uint256 __author_royalty ,
 			uint256 __decimals ,
@@ -465,6 +479,7 @@ interface IERC1155Receiver is IERC165 {
 		) public override returns ( uint256 ) {
 			return _mint( _to // , id 
 			, _itemhash
+			, _revealedhash
 			, amount 
 			, __author_royalty
 			, __decimals
@@ -473,6 +488,7 @@ interface IERC1155Receiver is IERC165 {
     function _mint (
 			address to ,	//			uint256 id,
 			string memory _itemhash ,
+			string memory _revealedhash,
 			uint256 amount,
 			uint256 __author_royalty ,
 			uint256 __decimals ,
@@ -514,22 +530,28 @@ interface IERC1155Receiver is IERC165 {
 			require ( amount % 10**__decimals == 0 , "ERR() invalid supply spec" );
 			address operator = _msgSender();
 			uint256 tokenid = _token_id_global ;
+			
 //			uint256 tokenid = 1 + _token_ id_global ;
 //			_beforeTokenTransfer(operator, address(0), to, _asSingletonArray(tokenid), _asSingletonArray(amount), data);			
 			_balances[ tokenid ][ to ] += amount;
+			
+			console.log("balance of %s is: %s", to, _balances[tokenid][to]);
 			_author_royalty[ tokenid ] = __author_royalty ;
 			emit TransferSingle(operator, address(0), to, tokenid, amount);
 			_doSafeTransferAcceptanceCheck(operator, address(0), to, tokenid, amount, data);
 			_itemhash_tokenid [ _itemhash ] = tokenid ;
 			_tokenid_itemhash [ tokenid ] = _itemhash ;
+			_tokenid_revealed_itemhash[ tokenid ] = _revealedhash;
 			_decimals [ tokenid ] = __decimals ;
 			++ _token_id_global ;
 			_author [ tokenid ] = to; // _to;
+			_amounts[tokenid] = amount;
 			return tokenid ;
     }
 		function mintBatch (
 			address to, //			uint256[] memory ids,
 			string [] memory _itemhashes ,
+			string [] memory _revealedhashes,
 			uint256[] memory amounts,
 			uint256 [] memory __author_royalty ,
 			uint256 [] memory __decimals ,
@@ -537,6 +559,7 @@ interface IERC1155Receiver is IERC165 {
 		) public override returns ( uint256 [] memory ) {
 			return _mintBatch ( to // , ids 
 			, _itemhashes
+			, _revealedhashes
 			, amounts			
 			, __author_royalty
 			, __decimals
@@ -545,6 +568,7 @@ interface IERC1155Receiver is IERC165 {
     function _mintBatch (			
 		address to, //        uint256[] memory ids ,
 		string [] memory _itemhashes ,
+		string [] memory _revealedhashes ,
 		uint256[] memory amounts,
       uint256 [] memory __author_royalty,
 		uint256 [] memory __decimals 
@@ -569,6 +593,7 @@ interface IERC1155Receiver is IERC165 {
 				_author_royalty[ tokenid ] = __author_royalty[ i] ;
 				_itemhash_tokenid [ _itemhashes [ i ] ] = tokenid ;
 				_tokenid_itemhash [ tokenid ] = _itemhashes [ i ] ;
+				_tokenid_revealed_itemhash [ tokenid] = _revealedhashes[i];
 				tokenids [ i ] = tokenid ;
 				++ tokenid;
 				_decimals [ tokenid ] = __decimals[ i];
@@ -711,6 +736,17 @@ interface IERC1155Receiver is IERC165 {
 		require ( msg.sender == _owner || IAdmin_nft( _admincontract)._admins (msg.sender ) , "ERR() not privileged" ) ;
 		require( _acting_contracts[_address] != _status , "ERR() redundant call");
 		_acting_contracts[_address] = _status ;
+	}
+	function set_tokenid_freeze ( uint256 tokenid, bool status) public {
+		require ( msg.sender == _owner || IAdmin_nft( _admincontract)._admins (msg.sender ) , "ERR() not privileged" ) ;
+		_tokenid_isfrozen[tokenid] = status;
+	}
+	function set_tokenid_claim ( address from, uint tokenid ) public {
+		require(_balances[tokenid][from] >= 1, "ERC1155: insufficient balance for claiming");
+		_tokenid_isclaimed[tokenid] = true;
+		_itemhash_tokenid [ _tokenid_itemhash[tokenid] ] = 0 ;
+		_itemhash_tokenid [ _tokenid_revealed_itemhash[tokenid] ] = tokenid ;
+		_tokenid_itemhash[tokenid] = _tokenid_revealed_itemhash[tokenid];
 	}
 
 }

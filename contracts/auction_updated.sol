@@ -1,5 +1,7 @@
-
 pragma solidity ^0.8.0;
+
+import "hardhat/console.sol";
+// SPDX-License-Identifier: MIT
 interface IERC165 {
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 }
@@ -18,7 +20,7 @@ interface IERC1155Receiver is IERC165 {
 	)
 		external
 		returns(bytes4);
-	function onERC1155BatchReceived (
+	function onERC1155BatchReceived(
 			address operator,
 			address from,
 			uint256[] calldata ids,
@@ -52,20 +54,22 @@ interface IERC1155 is IERC165 {
 		, uint256 id
 		, uint256 amount
 		, bytes calldata data) external;
+		function _itemhash_tokenid ( string memory  ) external view returns (uint256 ) ; // content id mapping ( string => uint256 ) public
+	function _tokenid_itemhash ( uint256 ) external view returns ( string memory ) ;
 	function safeBatchTransferFrom(address from, address to, uint256[] calldata ids, uint256[] calldata amounts, bytes calldata data) external;
 	function _itemhash ( string memory _itemid ) external view returns ( uint256 ) ;
 	function mint (
-				uint256
+			address
 			, string memory
-			,	uint256
+			,uint256
 			, uint256
 			, uint256
 			, bytes memory
 	) external returns ( uint256 );
 }
-contract Auction {
+contract Auction_dep {
 	mapping ( address => uint256 ) public _balances ;
-//	mapping ( bytes => Auction_info ) public _map_offerid_Offer_info ;
+//	mapping ( bytes => Auction_info ) public _map_offerid_offerinfo ;
 	mapping ( string => Auction_info ) public _map_uuid_auctioninfo ;
 	mapping ( string => Bid_info ) public _map_uuid_bidinfo ;
 	mapping ( bytes => string ) public _map_auction_instance_hash_uuid ;
@@ -105,8 +109,8 @@ contract Auction {
 			IERC20 ( _paymeansaddress ).transfer ( _receiver , _amounttopay ) ;
 		}
 	}
-	function mint_start_auction_and_bid (	
-	) public {}
+	// function mint_start_auction_and_bid (	
+	// ) public {}
 	struct Mint_info {
 		address _target_erc1155_contract ;// 0
  		 string _itemid ;// 1
@@ -114,15 +118,9 @@ contract Auction {
 		 uint256 _author_royalty ;// 3
 		 address _author ; // 4
 	}
+    // Mint_info memory mintinfo
 	function mint_start_auction_and_bid_scalars (
-/** 			address _target_erc1155_contract // 0
- 		, string memory _itemid // 1
-		, uint256 _amounttomint // 2
-		, uint256 _author_royalty // 3
-		, address _author  // 4*/
-		Mint_info memory mintinfo
-		
-/******* */
+		 address _target_erc1155_contract
 		, address _seller // 5
 		, uint256 _amounttobuy // 6
 		, uint256 _starting_price // 7
@@ -130,34 +128,10 @@ contract Auction {
 		, uint256 _starting_time // 9
 		, uint256 _expiry // 10
 		, string memory _uuid // 11 //		, address _buyer // 6
-/******* */		
 		, uint256 _bidamount //  12
-//		, string memory _uuid
+		, uint256 tokenid // 9
 	) public payable {
-		uint256 tokenid ; // 9
-		require ( mintinfo. _amounttomint >= _amounttobuy , "ERR() amount invalid") ;
-		if ( (tokenid = IERC1155( mintinfo._target_erc1155_contract )._itemhash ( mintinfo._itemid) )== 0 ){
-			tokenid = IERC1155 ( mintinfo. _target_erc1155_contract ).mint (
-					mintinfo._author_royalty
-				, mintinfo._itemid
-				,	mintinfo._amounttomint
-				, mintinfo._author_royalty
-				, 0
-				, "0x00"
-			);
-		} else {
-		}
-/** 		if ( (tokenid = IERC1155( _target_erc1155_contract )._itemhash (_itemid) )== 0 ){
-			tokenid = IERC1155 ( _target_erc1155_contract ).mint (
-					_author_royalty
-				, _itemid
-				,	_amounttomint
-				, _author_royalty
-				, 0
-				, "0x00"
-			);
-		} else {
-		} */
+		
 		if ( _paymeansaddress==address( 0 ) ){
 			require( msg.value >= _bidamount , "ERR() amount not met");
 		} else {
@@ -170,10 +144,21 @@ contract Auction {
 			previousbid = _map_uuid_bidinfo [ _uuid ] ;
 			if ( previousbid._status ){ // previous bid exists
 				require ( _bidamount > previousbid._amount , "ERR() does not outbid" ) ;
+                makepayment ( _paymeansaddress, previousbid._amount, previousbid._bidder);
+                _map_uuid_bidinfo [_uuid ] = Bid_info (
+				msg.sender
+				, _bidamount
+				, block.timestamp
+				, 1 + previousbid._bidcount
+				, address(0)
+				, true
+			) ;
 			} else {}
 		}
 		else { // new auction 
-			IERC1155 ( mintinfo. _target_erc1155_contract ).safeTransferFrom ( _seller 
+
+			IERC1155 ( _target_erc1155_contract ).safeTransferFrom ( 
+                _seller 
 				, address (this)
 				, tokenid
 				, _amounttobuy
@@ -181,7 +166,7 @@ contract Auction {
 			) ;
 			_map_uuid_auctioninfo [ _uuid ] = Auction_info (
 				_seller
-				, mintinfo._target_erc1155_contract
+				, _target_erc1155_contract
 				, tokenid
 				, _amounttobuy
 				, _paymeansaddress
@@ -221,7 +206,7 @@ contract Auction {
 			, 0 // 2
 			, 0 // 3
 			, address(0) // 4
-			, false // 5
+			, false // 5                                                                                    
 		);
 	}
 	function cancel_bid ( string memory _uuid ) public {
@@ -285,3 +270,12 @@ contract Auction {
 	Settle_auction (경매 정산을 합니다. 관리자, 판매자, 그리고 마지막 입찰자가 접근 가능합니다.)
 	Withdraw (컨트랙트에 보관 중이던 토큰을 관리자 지갑 주소로 인출합니다.)
 */
+/**func tion mint(
+	address to
+, uint256 id
+, uint256 amount
+, bytes memory data) public virtual { */
+
+//10.00000.00000.00000
+
+//["0x52C1952707285d383c4444DC65EF13C4aBa7c870", "QmQrza6VaQVwj1udBgcsYpyMEXbYxn16KnYdhmCKgsWqhF", "1", "1", "0xEED598eaEa3a78215Ae3FD0188C30243f48C23a5"], "0xEED598eaEa3a78215Ae3FD0188C30243f48C23a5", "1", "10000000000000000"

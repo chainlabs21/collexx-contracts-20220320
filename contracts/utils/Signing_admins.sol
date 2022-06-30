@@ -1,4 +1,3 @@
-
 contract Signing_admins {
 	mapping ( address => bool ) public _signing_admins ;
 	function set_signing_admin ( address _address , bool _status ) public {
@@ -6,4 +5,3 @@ contract Signing_admins {
 	}
 	constructor () {}
 }
-	

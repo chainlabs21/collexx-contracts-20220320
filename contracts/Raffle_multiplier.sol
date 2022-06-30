@@ -29,7 +29,7 @@ interface IRaffle_info {
 		uint256 decimals;
 	}
 }
-contract mRaffle is SaleInfo , IRaffle_info , Ownable {
+contract Raffle is SaleInfo , IRaffle_info , Ownable {
 	mapping ( string => Raffle_info ) public _map_raffle_info ;
 	mapping ( address => mapping ( string => bool )) public _map_user_raffle_status ;
 	mapping ( string => address [] ) public  _map_uuid_players ;

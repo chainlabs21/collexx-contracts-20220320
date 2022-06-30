@@ -1,13 +1,24 @@
 
 pragma solidity ^0.8.0;
+
+
 contract Admin_nft {
+
+	struct Fee{
+		string key;
+		uint value;
+	}
+	mapping (uint => Fee) public fees;
+	uint _feecount = 4;
 	// minting policy
 	address public _owner ;
 	mapping (address => bool ) public _admins ;
 	uint public ADMIN_FEE_INBP_DEF = 250 ; //  opensea's
 	uint256 public REFERER_FEE_DEF = 100 ;
 	mapping (string => uint ) public _action_str_fees; // all fee units are in basis points
+    mapping (string => bool ) public _action_str_fees_bool; // all fee units are in basis points
 	mapping (uint => uint ) public _action_uint_fees ; //
+	//string[] public _keys = new string[](4);
 
 	address public _vault ;
 	uint256 public _author_royalty_max = 1000 ; // 10%
@@ -22,7 +33,7 @@ contract Admin_nft {
 	bool public _allow_duplicate_datahash = false ; // need to decide on default value	
 	uint256 public ADMIN_FEE_RATE_DEF = 250 ;
 	address public _user_proxy_registry ;
-  uint256 public _use_user_black_whitelist_or_none ;
+	uint256 public _use_user_black_whitelist_or_none ;
 
 	address public _payroll_fees_contract ;
 	enum USER_ACCESS_REFERENCES_BLACK_WHITELIST_NONE {
@@ -44,6 +55,11 @@ contract Admin_nft {
 	}
 	uint public _PAY_REFERER_IMMEDIATE_OR_PERIODIC = uint256(PAY_REFERER_IMMEDIATE_OR_PERIODIC.PERIODIC)  ; // default
 	uint public  _PAY_AUTHOR_IMMEDIATE_OR_PERIODIC = uint256 (PAY_AUTHOR_IMMEDIATE_OR_PERIODIC.PERIODIC)  ;
+
+	
+
+
+
 	function set_PAY_REFERER_IMMEDIATE_OR_PERIODIC ( uint _choice ) public onlyadmin( msg.sender ){ 
 		if( _PAY_REFERER_IMMEDIATE_OR_PERIODIC == _choice ) {revert("ERR() redundant call");}
 		_PAY_REFERER_IMMEDIATE_OR_PERIODIC = _choice ;
@@ -95,9 +111,51 @@ contract Admin_nft {
 		if( _use_user_black_whitelist_or_none == _use_list){revert("ERR() redundant call"); }
 		_use_user_black_whitelist_or_none = _use_list ;
 	}
+    function set_activate_str_fee(string memory _action_str, bool _value) public onlyadmin(msg.sender){
+        _action_str_fees_bool[_action_str] = _value;
+    }
 	function set_action_str_fee (string memory _action_str , uint _fee_bp ) public onlyadmin(msg.sender) {		
 		_action_str_fees[ _action_str ] = _fee_bp ;
 	}
+	function set_action_str_fee_batch (string[] memory _action_strs , uint[] memory _fee_bps ) public onlyadmin(msg.sender) {	
+		require(_action_strs.length == _fee_bps.length, "ERR() length mismatch");	
+		for (uint256 i = 0; i < _action_strs.length; ++i) {
+			_action_str_fees[ _action_strs[i] ] = _fee_bps[i] ;
+		}
+	}
+	function get_total_fee() public view returns (Fee[] memory) {
+		Fee[] memory id = new Fee[](_feecount);
+		for(uint i=0; i<_feecount; i++){
+			Fee storage fee = fees[i];
+			id[i] = fee;
+		}
+		return id;
+	}
+	function get_fee(uint id) public view returns (uint){
+		return fees[id].value;
+	}
+
+	function edit_fee(uint id, uint value) public onlyadmin(msg.sender){
+		require(id<_feecount, 'WRONG ID');
+		require(value<10000, 'ADMIN:: WRONG VALUE');
+		fees[id].value = value;
+	} 
+
+	function add_fee(string memory _name, uint value) public onlyadmin(msg.sender){
+		require(value<10000, 'ADMIN:: WRONG VALUE');
+		fees[_feecount] = Fee(_name, value);
+		_feecount++;
+	}
+
+	function add_fee_batch(string[] memory _name, uint[] memory value) public onlyadmin(msg.sender){
+		//require(value<10000, 'ADMIN:: WRONG VALUE');
+		require(_name.length == value.length, "ERR() length mismatch");	
+		for (uint256 i = 0; i < _name.length; ++i) {
+			fees[ _feecount ] = Fee(_name[i], value[i]) ;
+			_feecount ++;
+		}
+	}
+
 	function set_user_proxy_registry ( address _address ) public onlyadmin (msg.sender ){
 		if( _user_proxy_registry == _address){revert("ERR() redundant call"); }
 		_user_proxy_registry = _address ;
@@ -106,31 +164,15 @@ contract Admin_nft {
 		if ( _address == _payroll_fees_contract ){revert ( "ERR() redundant call");}
 		_payroll_fees_contract = _address ;
 	}
+
 	constructor (){
 		_owner = msg.sender ;
 		_admins [ _owner] = true ;
 		_use_user_black_whitelist_or_none = uint256(USER_ACCESS_REFERENCES_BLACK_WHITELIST_NONE.NONE) ;
-
-		_action_str_fees["CLOSE_AUCTION"] = ADMIN_FEE_INBP_DEF ;
-		_action_str_fees["MINT"]=0; // ADMIN_FEE_INBP_DEF ;
-		_action_str_fees["MINT_SINGLE"]=0; // ADMIN_FEE_INBP_DEF ; 
-
-		_action_str_fees["PUT_ONSALE"]=ADMIN_FEE_INBP_DEF ;
-		_action_str_fees["MINT_AND_SELL"]=ADMIN_FEE_INBP_DEF ;
-		_action_str_fees["EDIT_SALE_TERMS"]=ADMIN_FEE_INBP_DEF ;  
-		_action_str_fees["SET_SALE_TERMS"]=ADMIN_FEE_INBP_DEF ;
-
-		_action_str_fees["SET_SALE_EXPIRY"]=ADMIN_FEE_INBP_DEF ;
-		_action_str_fees["CHANGE_PRICE"]=ADMIN_FEE_INBP_DEF ;
-		_action_str_fees["SET_PAYMEANS"]=ADMIN_FEE_INBP_DEF ;
-		_action_str_fees["APPROVE_BID"]=ADMIN_FEE_INBP_DEF ; // BUY_REQUEST
-		_action_str_fees["DENY_BID"]=ADMIN_FEE_INBP_DEF ; // BUY_REQUEST
-		_action_str_fees["CANCEL_SALE"]=ADMIN_FEE_INBP_DEF ;
-		_action_str_fees["PUT_BID"]=ADMIN_FEE_INBP_DEF ;
-		_action_str_fees["CANCEL_BID"]=ADMIN_FEE_INBP_DEF ;
-
-		_action_str_fees["BID_DUTCH_BULK"] = ADMIN_FEE_INBP_DEF ;
-		_action_str_fees["MATCH"] = ADMIN_FEE_INBP_DEF ;
-		_action_str_fees["MINT_AND_MATCH_SINGLE"] = ADMIN_FEE_INBP_DEF ;		
+        _action_str_fees["ENROLL_FEE"] = ADMIN_FEE_INBP_DEF;
+        _action_str_fees["TRADE_FEE"] = ADMIN_FEE_INBP_DEF;
+        _action_str_fees_bool["TRADE_FEE"] = true;
+        _action_str_fees_bool["ENROLL_FEE"] = true;
 	}
+	
 }

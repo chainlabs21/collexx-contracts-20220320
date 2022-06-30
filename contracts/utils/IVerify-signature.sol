@@ -16,10 +16,10 @@ contract Verify_signature {
 	}
 */
 	function prefixed (bytes32 hash) public pure returns (bytes32) {
-		return keccak256(abi.encodePacked("\x19Klaytn Signed Message:\n32", hash));
+		return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
 	}
 	function splitSignature (bytes memory _sig) public pure returns (uint8, bytes32, bytes32) {
-		require(_sig.length == 65);
+		require(_sig.length == 65, "WRONG LENGTH");
 		bytes32 r;
 		bytes32 s;
 		uint8 v;
@@ -38,8 +38,14 @@ contract Verify_signature {
 		bytes32 r;
 		bytes32 s;
 		bytes32 dehashed_message;
+
 		(dehashed_message) = prefixed(message);
+
 		(v, r, s) = splitSignature(_sig);
+
 		return ecrecover(dehashed_message, v, r, s);
+	}
+	function msgHasher(string memory itemid, address winner)  public pure returns(bytes32){
+		return keccak256(abi.encodePacked(itemid, winner));
 	}
 }
