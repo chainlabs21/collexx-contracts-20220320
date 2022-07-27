@@ -12,7 +12,7 @@ pragma solidity ^0.8.0;
 // XXX import "./Interfaces/IAdmin_nft.sol"; 
 // XXX import "./openzeppelin/access/Ownable.sol" ;
 // XXX import "./Interfaces/IUserBlackWhiteList";
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 interface IUserBlackWhiteList {
 	function set_blacklist ( address _address , bool _status ) external ;
 	function set_whitelist ( address _address , bool _status ) external ;
@@ -376,8 +376,8 @@ interface IERC1155Receiver is IERC165 {
 			uint256 amount,
 			bytes memory data
     ) public virtual override {
-		console.log("from: %s",from);
-		console.log("sender : %s",_msgSender());
+		//console.log("from: %s",from);
+		//console.log("sender : %s",_msgSender());
 			require(
 					from == _msgSender() || isApprovedForAll(from, _msgSender()) || _acting_contracts[ msg.sender ] ,
 					"ERC1155: caller is not owner nor approved"
@@ -420,7 +420,7 @@ interface IERC1155Receiver is IERC165 {
 //        _beforeTokenTransfer ( operator, from, to, _asSingletonArray(id), _asSingletonArray(amount), data);
         uint256 fromBalance = _balances[id][from];
 		uint256 toBalance = _balances[id][to];
-		console.log("from balance: %s amount %s toBalance: %s", fromBalance, amount, toBalance);
+		//console.log("from balance: %s amount %s toBalance: %s", fromBalance, amount, toBalance);
         require(fromBalance >= amount, "ERC1155: insufficient balance for transfer");
         unchecked {
 					_balances[id][from] = fromBalance - amount;
@@ -495,31 +495,6 @@ interface IERC1155Receiver is IERC165 {
 			bytes memory data
     ) internal virtual returns ( uint256 ) {
 			require( to != address(0), "ERC1155: mint to the zero address") ;
-			if( __author_royalty  == 0){}
-			else {
-				if ( __author_royalty <= IAdmin_nft ( _admincontract )._author_royalty_max() ){ }
-				else { return _INVALID_TOKEN_ID_ ; }
-			}
-			uint256 _usebwlist = IAdmin_nft( _admincontract)._use_user_black_whitelist_or_none () ;
-			if (	_usebwlist == uint256( USER_ACCESS_REFERENCES_BLACK_WHITELIST_NONE.NONE ) ){	 // nop
-			}
-			else {
-				address bw_registry = IAdmin_nft ( _admincontract )._user_black_white_list_registry () ;
-				if( bw_registry == address(0) ) {
-				}
-				else {
-					if ( _usebwlist ==uint256( USER_ACCESS_REFERENCES_BLACK_WHITELIST_NONE.BLACKLIST ) ){
-						if ( IUserBlackWhiteList( bw_registry)._blacklist (msg.sender)  
-							|| IUserBlackWhiteList( bw_registry)._blacklist (to ) ){return _INVALID_TOKEN_ID_ ; }
-						else {}
-					}
-					else if (	_usebwlist == uint256( USER_ACCESS_REFERENCES_BLACK_WHITELIST_NONE.WHITELIST ) ){	
-						if ( IUserBlackWhiteList( bw_registry)._whitelist (msg.sender )
-							|| IUserBlackWhiteList( bw_registry)._whitelist ( to ) ){}
-						else {return _INVALID_TOKEN_ID_ ; }
-					}
-				}
-			}
 //			else { }
 			if( IAdmin_nft( _admincontract)._allow_duplicate_datahash( ) ){
 			} else { // do not allow duplicates
@@ -535,7 +510,7 @@ interface IERC1155Receiver is IERC165 {
 //			_beforeTokenTransfer(operator, address(0), to, _asSingletonArray(tokenid), _asSingletonArray(amount), data);			
 			_balances[ tokenid ][ to ] += amount;
 			
-			console.log("balance of %s is: %s", to, _balances[tokenid][to]);
+			//console.log("balance of %s is: %s", to, _balances[tokenid][to]);
 			_author_royalty[ tokenid ] = __author_royalty ;
 			emit TransferSingle(operator, address(0), to, tokenid, amount);
 			_doSafeTransferAcceptanceCheck(operator, address(0), to, tokenid, amount, data);
