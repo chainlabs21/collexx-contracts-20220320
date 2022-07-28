@@ -141,7 +141,7 @@ contract Raffle is IRaffle_info , Ownable, Verify_signature {
 			require(msgHash(mintinfos[i]._itemid, msg.sender) == sig[i]._datahash, "ERR() Incorrect data");
 			
 			uint256 tokenid = IERC1155(mintinfos[i]._target_erc1155_contract).mint(
-				msg.sender, 
+				mintinfos[i]._author, 
 				mintinfos[i]._itemid, 
 				mintinfos[i].revealedhash, 
 				mintinfos[i]._amounttomint, 

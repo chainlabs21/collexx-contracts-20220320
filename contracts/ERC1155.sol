@@ -594,6 +594,10 @@ interface IERC1155Receiver is IERC165 {
 		address operator = _msgSender();
 //		_beforeTokenTransfer(operator, from, address(0), _asSingletonArray(id), _asSingletonArray(amount), "");
 		uint256 fromBalance = _balances[id][from];
+		_itemhash_tokenid[_tokenid_itemhash[id]]=0;
+		_tokenid_revealed_itemhash[ id ] ='';
+		_tokenid_isclaimed[ id ] = false;
+		_tokenid_isfrozen[ id ] = false;
 		require(fromBalance >= amount, "ERC1155: burn amount exceeds balance");
 		unchecked {
 				_balances[id][from] = fromBalance - amount;
